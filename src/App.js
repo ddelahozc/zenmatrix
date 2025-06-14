@@ -11,14 +11,19 @@ import {
   FormControl,
   InputLabel,
   Button,
+  Pagination,
+  Stack,
+  ToggleButton, // Nuevo: para alternar vista
+  ToggleButtonGroup, // Nuevo: para agrupar ToggleButtons
 } from '@mui/material';
 // Importaciones de react-toastify
 import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css'; // ¡IMPORTANTE: importar los estilos CSS de react-toastify!
+import 'react-toastify/dist/ReactToastify.css';
 
 // Importaciones de tus componentes locales
 import TaskForm from './TaskForm';
 import TaskList from './TaskList';
+import EisenhowerMatrix from './EisenhowerMatrix'; // Nuevo: Importa el componente de la matriz
 import './App.css';
 
 function App() {
@@ -31,11 +36,15 @@ function App() {
   const [filterPriority, setFilterPriority] = useState('');
   const [filterCompleted, setFilterCompleted] = useState('');
   const [filterProject, setFilterProject] = useState('');
+  const [sortBy, setSortBy] = useState('createdAt_desc');
 
-  // --- Nuevo estado para ordenamiento ---
-  const [sortBy, setSortBy] = useState('createdAt_desc'); // Campo por el que ordenar y dirección
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limitPerPage, setLimitPerPage] = useState(5);
+  const [totalTasks, setTotalTasks] = useState(0);
 
-  // Función para construir los parámetros de consulta URL
+  // Nuevo estado para controlar la vista: 'list' o 'matrix'
+  const [viewMode, setViewMode] = useState('list'); // Por defecto, mostrar la lista
+
   const buildQueryParams = () => {
     const params = new URLSearchParams();
     if (searchTerm) {
@@ -50,17 +59,21 @@ function App() {
     if (filterProject) {
       params.append('proyecto', filterProject);
     }
-    // Nuevo: Añadir parámetros de ordenamiento
     if (sortBy) {
       const [field, direction] = sortBy.split('_');
       params.append('sortBy', field);
       params.append('sortDirection', direction);
     }
+    // La paginación solo se aplica a la vista de lista
+    if (viewMode === 'list') {
+      params.append('page', currentPage);
+      params.append('limit', limitPerPage);
+    }
     return params.toString();
   };
 
   const fetchTasks = async () => {
-    setLoading(true); // Indicar carga al iniciar la petición
+    setLoading(true);
     const queryParams = buildQueryParams();
     const url = `http://localhost:5000/api/tasks${queryParams ? `?${queryParams}` : ''}`;
 
@@ -70,20 +83,22 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      setTasks(data);
+      setTasks(data.tasks);
+      setTotalTasks(data.totalCount);
+      setError(null);
     } catch (e) {
       console.error("Error fetching tasks:", e);
       setError(e);
-      toast.error(`Error al cargar las tareas: ${e.message}`); // Mensaje toast de error
+      toast.error(`Error al cargar las tareas: ${e.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // useEffect se ejecuta cuando el componente se monta O cuando los filtros u ordenamiento cambian
+  // useEffect ahora depende de viewMode también para ajustar la query params
   useEffect(() => {
     fetchTasks();
-  }, [searchTerm, filterPriority, filterCompleted, filterProject, sortBy]); // Nuevo: sortBy en dependencias
+  }, [searchTerm, filterPriority, filterCompleted, filterProject, sortBy, currentPage, limitPerPage, viewMode]);
 
   const handleCreateTask = async (taskData) => {
     try {
@@ -103,8 +118,6 @@ function App() {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const createdTask = await response.json();
-      // En lugar de añadir directamente, recargar la lista para asegurar el orden correcto
       fetchTasks();
       setError(null);
       toast.success('¡Tarea creada con éxito!');
@@ -140,8 +153,6 @@ function App() {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const updatedTask = await response.json();
-      // Recargar la lista para asegurar que el ordenamiento se mantenga correcto
       fetchTasks();
       setEditingTask(null);
       setError(null);
@@ -167,7 +178,6 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Recargar la lista para asegurar que el ordenamiento se mantenga correcto
       fetchTasks();
       setError(null);
       toast.success('¡Tarea eliminada con éxito!');
@@ -183,8 +193,33 @@ function App() {
     setFilterPriority('');
     setFilterCompleted('');
     setFilterProject('');
-    toast.info('Filtros limpiados.');
+    setSortBy('createdAt_desc');
+    setCurrentPage(1);
+    toast.info('Filtros y ordenamiento limpiados.');
   };
+
+  const totalPages = Math.ceil(totalTasks / limitPerPage);
+
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+  };
+
+  const handleLimitChange = (event) => {
+    setLimitPerPage(parseInt(event.target.value));
+    setCurrentPage(1);
+  };
+
+  const handleViewModeChange = (event, newMode) => {
+    if (newMode !== null) { // Asegurarse de que no sea null (cuando se deselecciona un toggle)
+      setViewMode(newMode);
+      // Cuando cambias a la vista de matriz, no tiene sentido la paginación,
+      // así que cargamos todas las tareas (el backend lo manejará sin 'page'/'limit')
+      if (newMode === 'matrix') {
+        setCurrentPage(1); // Resetear a página 1 si vuelves a la lista
+      }
+    }
+  };
+
 
   if (loading) {
     return (
@@ -203,7 +238,7 @@ function App() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4, p: 3, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 3 }}>
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4, p: 3, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 3 }}>
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
 
       <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4, color: 'primary.main' }}>
@@ -226,7 +261,7 @@ function App() {
 
       <Divider sx={{ my: 4 }} />
 
-      {/* --- Seccion de Filtrado, Búsqueda y Ordenamiento --- */}
+      {/* --- Seccion de Filtrado, Búsqueda, Ordenamiento y Selección de Vista --- */}
       <Box sx={{ mb: 4, p: 2, bgcolor: '#e3f2fd', borderRadius: 2 }}>
         <Typography variant="h6" gutterBottom>Opciones de Visualización</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'flex-end' }}>
@@ -273,24 +308,43 @@ function App() {
             </Select>
           </FormControl>
 
-          {/* Nuevo: Selector de Ordenamiento */}
-          <FormControl sx={{ minWidth: 180 }} size="small">
-            <InputLabel>Ordenar por</InputLabel>
-            <Select
-              value={sortBy}
-              label="Ordenar por"
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <MenuItem value="createdAt_desc">Fecha Creación (desc)</MenuItem>
-              <MenuItem value="createdAt_asc">Fecha Creación (asc)</MenuItem>
-              <MenuItem value="fechaVencimiento_asc">Fecha Vencimiento (asc)</MenuItem>
-              <MenuItem value="fechaVencimiento_desc">Fecha Vencimiento (desc)</MenuItem>
-              <MenuItem value="prioridad_asc">Prioridad (asc)</MenuItem>
-              <MenuItem value="prioridad_desc">Prioridad (desc)</MenuItem>
-              <MenuItem value="titulo_asc">Título (A-Z)</MenuItem>
-              <MenuItem value="titulo_desc">Título (Z-A)</MenuItem>
-            </Select>
-          </FormControl>
+          {/* Selector de Ordenamiento */}
+          {viewMode === 'list' && ( // Solo mostrar el ordenamiento en vista de lista
+            <FormControl sx={{ minWidth: 180 }} size="small">
+              <InputLabel>Ordenar por</InputLabel>
+              <Select
+                value={sortBy}
+                label="Ordenar por"
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <MenuItem value="createdAt_desc">Fecha Creación (desc)</MenuItem>
+                <MenuItem value="createdAt_asc">Fecha Creación (asc)</MenuItem>
+                <MenuItem value="fechaVencimiento_asc">Fecha Vencimiento (asc)</MenuItem>
+                <MenuItem value="fechaVencimiento_desc">Fecha Vencimiento (desc)</MenuItem>
+                <MenuItem value="prioridad_asc">Prioridad (asc)</MenuItem>
+                <MenuItem value="prioridad_desc">Prioridad (desc)</MenuItem>
+                <MenuItem value="titulo_asc">Título (A-Z)</MenuItem>
+                <MenuItem value="titulo_desc">Título (Z-A)</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+
+          {/* Selector de Tareas por Página (solo en vista de lista) */}
+          {viewMode === 'list' && (
+            <FormControl sx={{ minWidth: 120 }} size="small">
+              <InputLabel>Tareas por Pág.</InputLabel>
+              <Select
+                value={limitPerPage}
+                label="Tareas por Pág."
+                onChange={handleLimitChange}
+              >
+                <MenuItem value={5}>5</MenuItem>
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+                <MenuItem value={50}>50</MenuItem>
+              </Select>
+            </FormControl>
+          )}
 
           <Button
             variant="outlined"
@@ -300,19 +354,64 @@ function App() {
           >
             Limpiar Filtros
           </Button>
+
+          {/* Toggle para cambiar la vista */}
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
+            aria-label="text alignment"
+            sx={{ ml: { xs: 0, sm: 2 }, mt: { xs: 2, sm: 0 } }}
+          >
+            <ToggleButton value="list" aria-label="vista de lista">
+              <Typography>Vista de Lista</Typography>
+            </ToggleButton>
+            <ToggleButton value="matrix" aria-label="vista de matriz">
+              <Typography>Vista de Matriz</Typography>
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Box>
       </Box>
       {/* --- Fin Seccion de Filtrado, Búsqueda y Ordenamiento --- */}
 
-      <Typography variant="h5" component="h2" gutterBottom>
-        Tus Tareas
-      </Typography>
-
-      <TaskList
-        tasks={tasks}
-        onDelete={handleDeleteTask}
-        onEdit={setEditingTask}
-      />
+      {/* Renderizado condicional de la lista o la matriz */}
+      {viewMode === 'list' ? (
+        <>
+          <Typography variant="h5" component="h2" gutterBottom>
+            Tus Tareas (Vista de Lista)
+          </Typography>
+          <TaskList
+            tasks={tasks}
+            onDelete={handleDeleteTask}
+            onEdit={setEditingTask}
+          />
+          {totalPages > 1 && ( // Mostrar paginación solo si hay más de una página y es vista de lista
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Stack spacing={2}>
+                <Pagination
+                  count={totalPages}
+                  page={currentPage}
+                  onChange={handlePageChange}
+                  color="primary"
+                  showFirstButton
+                  showLastButton
+                />
+              </Stack>
+            </Box>
+          )}
+        </>
+      ) : (
+        <>
+          <Typography variant="h5" component="h2" gutterBottom>
+            Tus Tareas (Vista de Matriz)
+          </Typography>
+          <EisenhowerMatrix
+            tasks={tasks} // Pasa todas las tareas para que la matriz las categorice
+            onDelete={handleDeleteTask}
+            onEdit={setEditingTask}
+          />
+        </>
+      )}
     </Container>
   );
 }

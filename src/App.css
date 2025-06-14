@@ -1,63 +1,67 @@
 /* Estilos generales del cuerpo */
+/* La fuente se define ahora en el tema de MUI */
 body {
-  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif; /* Fuente recomendada por Material UI */
-  background-color: #f4f7f6; /* Color de fondo suave */
-  color: #333; /* Color de texto predeterminado */
-  margin: 0; /* Eliminar margen predeterminado del body */
-  padding: 0; /* Eliminar padding predeterminado del body */
-  line-height: 1.6; /* Espaciado entre líneas para mejor lectura */
+  background-color: #f4f7f6; /* Color de fondo suave que no cambia por el tema MUI */
+  color: #333; /* Color de texto predeterminado, aunque MUI también lo gestiona */
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
 }
 
-/* Contenedor principal de la aplicación */
-/* Notar que el componente Container de MUI ya maneja gran parte de esto,
-   pero esta clase podría usarse para estilos envolventes si es necesario.
-   En este caso, los estilos de Container en App.js reemplazan la mayoría de estos. */
-.app-container {
-  /* Los estilos como max-width, margin, padding, background-color,
-     border-radius y box-shadow son ahora manejados por el 'Container' de MUI
-     y sus props 'sx' en App.js. Estos estilos CSS aquí son más bien un fallback
-     o para elementos que no son componentes MUI directamente. */
-}
-
-/* Estilos para mensajes de error */
+/* Estilos para mensajes de error - Mantener si quieres personalización específica */
 .error-message {
-  color: #e74c3c; /* Color rojo para errores */
-  background-color: #fdeded; /* Fondo claro para errores */
-  border: 1px solid #e74c3c; /* Borde para errores */
-  padding: 15px; /* Relleno */
-  border-radius: 8px; /* Bordes redondeados */
-  text-align: center; /* Texto centrado */
-  font-weight: bold; /* Texto en negrita */
-  margin-top: 20px; /* Margen superior */
-}
-
-/* Estilos para el mensaje "No hay tareas aún" */
-.no-tasks {
-  text-align: center; /* Centrar texto */
-  color: #777; /* Color de texto gris */
-  padding: 20px; /* Relleno */
-  background-color: #f8f8f8; /* Fondo claro */
-  border-radius: 8px; /* Bordes redondeados */
-  margin-top: 20px; /* Margen superior */
-}
-
-/* Aunque MUI usa Chips para las prioridades,
-   estos estilos serían un fallback o para personalización más profunda.
-   La mayoría de los estilos para .priority-tag ahora se controlan vía el 'Chip' de MUI.
-*/
-/*
-.priority-tag {
-  padding: 5px 10px;
-  border-radius: 5px;
-  font-size: 0.8em;
+  color: #e74c3c;
+  background-color: #fdeded;
+  border: 1px solid #e74c3c;
+  padding: 15px;
+  border-radius: 8px;
+  text-align: center;
   font-weight: bold;
-  color: white;
-  text-transform: uppercase;
-  white-space: nowrap;
+  margin-top: 20px;
 }
 
-.urgente-importante { background-color: #e74c3c; }
-.no-urgente-importante { background-color: #f39c12; }
-.urgente-no-importante { background-color: #3498db; }
-.no-urgente-no-importante { background-color: #27ae60; }
-*/
+/* Estilos para el mensaje "No hay tareas aún" - Mantener */
+.no-tasks {
+  text-align: center;
+  color: #777;
+  padding: 20px;
+  background-color: #f8f8f8;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+/* --- Estilos para la Matriz de Eisenhower --- */
+.eisenhower-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 20px;
+  height: 600px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Anulaciones específicas para TaskItem dentro de la matriz
+   Estos estilos son importantes para que las tarjetas de tareas se vean bien
+   dentro de los cuadrantes de la matriz, ya que los colores de fondo del cuadrante
+   son fuertes. */
+.eisenhower-grid .MuiListItem-root {
+    background-color: rgba(255, 255, 255, 0.8); /* Fondo blanco semitransparente */
+    margin-bottom: 10px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    border: none;
+    padding: 10px;
+}
+
+.eisenhower-grid .MuiListItem-root:last-child {
+    margin-bottom: 0;
+}
+
+/* Ajustes para pantallas pequeñas */
+@media (max-width: 768px) {
+  .eisenhower-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
+  }
+}
