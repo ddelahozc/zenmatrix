@@ -1,180 +1,51 @@
-/* General Body Styles */
+/* Estilos generales del cuerpo */
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f4f7f6;
-  color: #333;
-  margin: 0;
-  padding: 0;
-  line-height: 1.6;
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif; /* Fuente recomendada por Material UI */
+  background-color: #f4f7f6; /* Color de fondo suave */
+  color: #333; /* Color de texto predeterminado */
+  margin: 0; /* Eliminar margen predeterminado del body */
+  padding: 0; /* Eliminar padding predeterminado del body */
+  line-height: 1.6; /* Espaciado entre líneas para mejor lectura */
 }
 
-/* App Container */
+/* Contenedor principal de la aplicación */
+/* Notar que el componente Container de MUI ya maneja gran parte de esto,
+   pero esta clase podría usarse para estilos envolventes si es necesario.
+   En este caso, los estilos de Container en App.js reemplazan la mayoría de estos. */
 .app-container {
-  max-width: 900px;
-  margin: 30px auto;
-  padding: 25px;
-  background-color: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  /* Los estilos como max-width, margin, padding, background-color,
+     border-radius y box-shadow son ahora manejados por el 'Container' de MUI
+     y sus props 'sx' en App.js. Estos estilos CSS aquí son más bien un fallback
+     o para elementos que no son componentes MUI directamente. */
 }
 
-h1, h2 {
-  color: #2c3e50;
-  text-align: center;
-  margin-bottom: 25px;
+/* Estilos para mensajes de error */
+.error-message {
+  color: #e74c3c; /* Color rojo para errores */
+  background-color: #fdeded; /* Fondo claro para errores */
+  border: 1px solid #e74c3c; /* Borde para errores */
+  padding: 15px; /* Relleno */
+  border-radius: 8px; /* Bordes redondeados */
+  text-align: center; /* Texto centrado */
+  font-weight: bold; /* Texto en negrita */
+  margin-top: 20px; /* Margen superior */
 }
 
-h1 {
-  font-size: 2.5em;
-  border-bottom: 2px solid #3498db;
-  padding-bottom: 10px;
+/* Estilos para el mensaje "No hay tareas aún" */
+.no-tasks {
+  text-align: center; /* Centrar texto */
+  color: #777; /* Color de texto gris */
+  padding: 20px; /* Relleno */
+  background-color: #f8f8f8; /* Fondo claro */
+  border-radius: 8px; /* Bordes redondeados */
+  margin-top: 20px; /* Margen superior */
 }
 
-h2 {
-  font-size: 1.8em;
-  color: #34495e;
-}
-
-hr {
-  border: none;
-  border-top: 1px solid #eee;
-  margin: 30px 0;
-}
-
-/* Form Styles */
-.task-form {
-  background-color: #ecf0f1;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 30px;
-}
-
-.task-form h3 {
-  text-align: center;
-  color: #34495e;
-  margin-top: 0;
-  margin-bottom: 20px;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-  color: #555;
-}
-
-.form-group input[type="text"],
-.form-group input[type="date"],
-.form-group textarea,
-.form-group select {
-  width: calc(100% - 20px); /* Adjust for padding */
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-size: 1em;
-  box-sizing: border-box; /* Include padding in width */
-}
-
-.form-group textarea {
-  min-height: 80px;
-  resize: vertical;
-}
-
-.checkbox-group {
-  display: flex;
-  align-items: center;
-  margin-top: 10px;
-}
-
-.checkbox-group input[type="checkbox"] {
-  margin-right: 10px;
-  transform: scale(1.2); /* Make checkbox slightly larger */
-}
-
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.form-actions button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 1em;
-  transition: background-color 0.3s ease;
-}
-
-.form-actions button[type="submit"] {
-  background-color: #3498db;
-  color: white;
-}
-
-.form-actions button[type="submit"]:hover {
-  background-color: #2980b9;
-}
-
-.form-actions button[type="button"] { /* For Cancel button */
-  background-color: #95a5a6;
-  color: white;
-}
-
-.form-actions button[type="button"]:hover {
-  background-color: #7f8c8d;
-}
-
-/* Task List */
-.task-list {
-  list-style: none;
-  padding: 0;
-}
-
-.task-item {
-  background-color: #fcfcfc;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  padding: 15px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s ease-in-out;
-}
-
-.task-item:hover {
-  transform: translateY(-3px);
-}
-
-.task-info {
-  flex-grow: 1;
-}
-
-.task-info p {
-  margin: 5px 0;
-  color: #666;
-}
-
-.task-title-priority {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-  flex-wrap: wrap; /* Allow wrapping on smaller screens */
-}
-
-.task-title-priority strong {
-  font-size: 1.3em;
-  color: #2c3e50;
-  margin-right: 10px;
-}
-
+/* Aunque MUI usa Chips para las prioridades,
+   estos estilos serían un fallback o para personalización más profunda.
+   La mayoría de los estilos para .priority-tag ahora se controlan vía el 'Chip' de MUI.
+*/
+/*
 .priority-tag {
   padding: 5px 10px;
   border-radius: 5px;
@@ -182,97 +53,11 @@ hr {
   font-weight: bold;
   color: white;
   text-transform: uppercase;
-  white-space: nowrap; /* Keep tag on one line */
+  white-space: nowrap;
 }
 
-/* Priority Tag Colors */
-.urgente-importante { background-color: #e74c3c; } /* Rojo */
-.no-urgente-importante { background-color: #f39c12; } /* Naranja */
-.urgente-no-importante { background-color: #3498db; } /* Azul */
-.no-urgente-no-importante { background-color: #27ae60; } /* Verde */
-
-.task-description {
-  font-style: italic;
-  color: #777;
-}
-
-.task-actions {
-  display: flex;
-  gap: 10px;
-  margin-left: 20px; /* Space between info and buttons */
-  flex-shrink: 0; /* Prevent actions from shrinking */
-}
-
-.task-actions button {
-  padding: 8px 15px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.9em;
-  transition: background-color 0.3s ease;
-}
-
-.edit-btn {
-  background-color: #2ecc71; /* Esmeralda */
-  color: white;
-}
-
-.edit-btn:hover {
-  background-color: #27ae60;
-}
-
-.delete-btn {
-  background-color: #c0392b; /* Granate */
-  color: white;
-}
-
-.delete-btn:hover {
-  background-color: #a72d21;
-}
-
-.no-tasks {
-  text-align: center;
-  color: #777;
-  padding: 20px;
-  background-color: #f8f8f8;
-  border-radius: 8px;
-}
-
-.error-message {
-  color: #e74c3c;
-  background-color: #fdeded;
-  border: 1px solid #e74c3c;
-  padding: 15px;
-  border-radius: 8px;
-  text-align: center;
-  font-weight: bold;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .app-container {
-    margin: 20px;
-    padding: 15px;
-  }
-
-  .task-item {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .task-actions {
-    margin-left: 0;
-    margin-top: 15px;
-    justify-content: flex-end;
-  }
-
-  .task-title-priority {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .task-title-priority strong {
-    margin-bottom: 5px;
-    margin-right: 0;
-  }
-}
+.urgente-importante { background-color: #e74c3c; }
+.no-urgente-importante { background-color: #f39c12; }
+.urgente-no-importante { background-color: #3498db; }
+.no-urgente-no-importante { background-color: #27ae60; }
+*/
