@@ -35,7 +35,7 @@ function TaskItem({ task, onDelete, onEdit }) {
         bgcolor: 'background.paper', // Color de fondo del tema MUI
         display: 'flex', // Usar flexbox para el layout
         flexDirection: { xs: 'column', sm: 'row' }, // Columnas en pantallas pequeñas, filas en grandes
-        alignItems: { xs: 'flex-start', sm: 'center' }, // Alineación de ítems
+        alignItems: { xs: 'flex-start', sm: 'center' },
         gap: 2, // Espacio entre ítems en flexbox
       }}
     >
@@ -102,4 +102,4 @@ function TaskItem({ task, onDelete, onEdit }) {
   );
 }
 
-export default TaskItem;
+export default TaskItem; // <<-- ¡Asegúrate de que esta línea esté presente!

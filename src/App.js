@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
+// Importaciones de Material UI
 import {
   Container,
   Typography,
   Divider,
   Box,
-  TextField, // Para el campo de búsqueda
-  Select,    // Para el selector de prioridad
-  MenuItem,  // Opciones del selector
-  FormControl, // Para envolver el selector con su label
-  InputLabel, // Label para el selector
-  Button, // Para el botón de limpiar filtros
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Button,
 } from '@mui/material';
+// Importaciones de react-toastify
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css'; // ¡IMPORTANTE: importar los estilos CSS de react-toastify!
 
+// Importaciones de tus componentes locales
 import TaskForm from './TaskForm';
 import TaskList from './TaskList';
 import './App.css';
@@ -22,11 +27,13 @@ function App() {
   const [error, setError] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
 
-  // --- Nuevos estados para filtros y búsqueda ---
-  const [searchTerm, setSearchTerm] = useState(''); // Estado para el término de búsqueda
-  const [filterPriority, setFilterPriority] = useState(''); // Estado para el filtro de prioridad
-  const [filterCompleted, setFilterCompleted] = useState(''); // Estado para el filtro de completado (true/false/all)
-  const [filterProject, setFilterProject] = useState(''); // Nuevo: Estado para el filtro de proyecto
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterPriority, setFilterPriority] = useState('');
+  const [filterCompleted, setFilterCompleted] = useState('');
+  const [filterProject, setFilterProject] = useState('');
+
+  // --- Nuevo estado para ordenamiento ---
+  const [sortBy, setSortBy] = useState('createdAt_desc'); // Campo por el que ordenar y dirección
 
   // Función para construir los parámetros de consulta URL
   const buildQueryParams = () => {
@@ -37,16 +44,21 @@ function App() {
     if (filterPriority) {
       params.append('priority', filterPriority);
     }
-    if (filterCompleted !== '') { // Asegurarse de que 'false' o 'true' también se envíen
+    if (filterCompleted !== '') {
       params.append('isCompleted', filterCompleted);
     }
-    if (filterProject) { // Nuevo: Añadir filtro de proyecto
+    if (filterProject) {
       params.append('proyecto', filterProject);
+    }
+    // Nuevo: Añadir parámetros de ordenamiento
+    if (sortBy) {
+      const [field, direction] = sortBy.split('_');
+      params.append('sortBy', field);
+      params.append('sortDirection', direction);
     }
     return params.toString();
   };
 
-  // Función asíncrona para cargar las tareas desde la API (actualizada para filtros)
   const fetchTasks = async () => {
     setLoading(true); // Indicar carga al iniciar la petición
     const queryParams = buildQueryParams();
@@ -62,17 +74,17 @@ function App() {
     } catch (e) {
       console.error("Error fetching tasks:", e);
       setError(e);
+      toast.error(`Error al cargar las tareas: ${e.message}`); // Mensaje toast de error
     } finally {
       setLoading(false);
     }
   };
 
-  // useEffect se ejecuta cuando el componente se monta O cuando los filtros cambian
+  // useEffect se ejecuta cuando el componente se monta O cuando los filtros u ordenamiento cambian
   useEffect(() => {
     fetchTasks();
-  }, [searchTerm, filterPriority, filterCompleted, filterProject]); // Nuevo: Añadir filterProject a las dependencias
+  }, [searchTerm, filterPriority, filterCompleted, filterProject, sortBy]); // Nuevo: sortBy en dependencias
 
-  // Manejador para crear una nueva tarea (POST) - Sin cambios
   const handleCreateTask = async (taskData) => {
     try {
       const taskToSend = { ...taskData };
@@ -92,18 +104,17 @@ function App() {
       }
 
       const createdTask = await response.json();
-      setTasks(prevTasks => [...prevTasks, createdTask]);
+      // En lugar de añadir directamente, recargar la lista para asegurar el orden correcto
+      fetchTasks();
       setError(null);
-      // Después de crear, podríamos querer recargar la lista para aplicar filtros si los hubiera
-      // fetchTasks();
+      toast.success('¡Tarea creada con éxito!');
     } catch (e) {
       console.error("Error creating task:", e);
       setError(e);
-      alert(`Error al crear la tarea: ${e.message}`);
+      toast.error(`Error al crear la tarea: ${e.message}`);
     }
   };
 
-  // Manejador para actualizar una tarea (PUT) - Sin cambios
   const handleUpdateTask = async (taskData) => {
     try {
       const taskToSend = { ...taskData };
@@ -130,19 +141,18 @@ function App() {
       }
 
       const updatedTask = await response.json();
-      setTasks(prevTasks =>
-        prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task)
-      );
+      // Recargar la lista para asegurar que el ordenamiento se mantenga correcto
+      fetchTasks();
       setEditingTask(null);
       setError(null);
+      toast.success('¡Tarea actualizada con éxito!');
     } catch (e) {
       console.error("Error updating task:", e);
       setError(e);
-      alert(`Error al actualizar la tarea: ${e.message}`);
+      toast.error(`Error al actualizar la tarea: ${e.message}`);
     }
   };
 
-  // Manejador para eliminar una tarea (DELETE) - Sin cambios
   const handleDeleteTask = async (id) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
       return;
@@ -157,21 +167,23 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+      // Recargar la lista para asegurar que el ordenamiento se mantenga correcto
+      fetchTasks();
       setError(null);
+      toast.success('¡Tarea eliminada con éxito!');
     } catch (e) {
       console.error("Error deleting task:", e);
       setError(e);
-      alert(`Error al eliminar la tarea: ${e.message}`);
+      toast.error(`Error al eliminar la tarea: ${e.message}`);
     }
   };
 
-  // Manejador para limpiar todos los filtros
   const handleClearFilters = () => {
     setSearchTerm('');
     setFilterPriority('');
     setFilterCompleted('');
-    setFilterProject(''); // Nuevo: Limpiar también el filtro de proyecto
+    setFilterProject('');
+    toast.info('Filtros limpiados.');
   };
 
   if (loading) {
@@ -192,6 +204,8 @@ function App() {
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4, p: 3, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 3 }}>
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
+
       <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4, color: 'primary.main' }}>
         ZenMatrix - Matriz de Eisenhower
       </Typography>
@@ -212,10 +226,10 @@ function App() {
 
       <Divider sx={{ my: 4 }} />
 
-      {/* --- Seccion de Filtrado y Búsqueda --- */}
+      {/* --- Seccion de Filtrado, Búsqueda y Ordenamiento --- */}
       <Box sx={{ mb: 4, p: 2, bgcolor: '#e3f2fd', borderRadius: 2 }}>
-        <Typography variant="h6" gutterBottom>Filtrar y Buscar Tareas</Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+        <Typography variant="h6" gutterBottom>Opciones de Visualización</Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'flex-end' }}>
           <TextField
             label="Buscar por Título/Descripción"
             variant="outlined"
@@ -224,7 +238,7 @@ function App() {
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1 }}
           />
-          <TextField // Nuevo: Campo de texto para filtrar por proyecto
+          <TextField
             label="Filtrar por Proyecto"
             variant="outlined"
             size="small"
@@ -258,6 +272,26 @@ function App() {
               <MenuItem value="true">Completadas</MenuItem>
             </Select>
           </FormControl>
+
+          {/* Nuevo: Selector de Ordenamiento */}
+          <FormControl sx={{ minWidth: 180 }} size="small">
+            <InputLabel>Ordenar por</InputLabel>
+            <Select
+              value={sortBy}
+              label="Ordenar por"
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <MenuItem value="createdAt_desc">Fecha Creación (desc)</MenuItem>
+              <MenuItem value="createdAt_asc">Fecha Creación (asc)</MenuItem>
+              <MenuItem value="fechaVencimiento_asc">Fecha Vencimiento (asc)</MenuItem>
+              <MenuItem value="fechaVencimiento_desc">Fecha Vencimiento (desc)</MenuItem>
+              <MenuItem value="prioridad_asc">Prioridad (asc)</MenuItem>
+              <MenuItem value="prioridad_desc">Prioridad (desc)</MenuItem>
+              <MenuItem value="titulo_asc">Título (A-Z)</MenuItem>
+              <MenuItem value="titulo_desc">Título (Z-A)</MenuItem>
+            </Select>
+          </FormControl>
+
           <Button
             variant="outlined"
             color="secondary"
@@ -268,7 +302,7 @@ function App() {
           </Button>
         </Box>
       </Box>
-      {/* --- Fin Seccion de Filtrado y Búsqueda --- */}
+      {/* --- Fin Seccion de Filtrado, Búsqueda y Ordenamiento --- */}
 
       <Typography variant="h5" component="h2" gutterBottom>
         Tus Tareas

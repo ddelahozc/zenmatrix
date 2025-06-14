@@ -33,4 +33,4 @@ function TaskList({ tasks, onDelete, onEdit }) {
   );
 }
 
-export default TaskList;
+export default TaskList; // <<-- ¡Asegúrate de que esta línea esté presente!
