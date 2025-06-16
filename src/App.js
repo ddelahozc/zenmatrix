@@ -13,8 +13,10 @@ import {
   Button,
   Pagination,
   Stack,
-  ToggleButton, // Nuevo: para alternar vista
-  ToggleButtonGroup, // Nuevo: para agrupar ToggleButtons
+  ToggleButton,
+  ToggleButtonGroup,
+  AppBar, // Nuevo: para la barra de navegación
+  Toolbar, // Nuevo: para la barra de herramientas dentro del AppBar
 } from '@mui/material';
 // Importaciones de react-toastify
 import { ToastContainer, toast } from 'react-toastify';
@@ -23,7 +25,8 @@ import 'react-toastify/dist/ReactToastify.css';
 // Importaciones de tus componentes locales
 import TaskForm from './TaskForm';
 import TaskList from './TaskList';
-import EisenhowerMatrix from './EisenhowerMatrix'; // Nuevo: Importa el componente de la matriz
+import EisenhowerMatrix from './EisenhowerMatrix';
+import AuthForm from './AuthForm'; // Nuevo: Importa el componente de autenticación
 import './App.css';
 
 function App() {
@@ -42,8 +45,37 @@ function App() {
   const [limitPerPage, setLimitPerPage] = useState(5);
   const [totalTasks, setTotalTasks] = useState(0);
 
-  // Nuevo estado para controlar la vista: 'list' o 'matrix'
-  const [viewMode, setViewMode] = useState('list'); // Por defecto, mostrar la lista
+  const [viewMode, setViewMode] = useState('list');
+
+  // --- NUEVOS ESTADOS PARA AUTENTICACIÓN ---
+  const [user, setUser] = useState(null); // Almacena la información del usuario autenticado
+  const [authFormType, setAuthFormType] = useState('login'); // 'login' o 'register'
+
+  // Efecto para verificar si hay un token en localStorage al cargar la app
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Aquí, en una app real, verificarías la validez del token con el backend
+      // Por ahora, simplemente asumimos que si hay token, el usuario está logueado
+      // Puedes decodificar el token para obtener info del user si es necesario
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    }
+    setLoading(false); // Ya no es 'loading' la primera vez si solo verificamos token
+  }, []);
+
+  // Efecto para cargar tareas solo si el usuario está autenticado
+  useEffect(() => {
+    if (user) { // Solo cargar tareas si hay un usuario logueado
+      fetchTasks();
+    } else {
+      setTasks([]); // Limpiar tareas si no hay usuario
+      setLoading(false); // Asegurarse de que no esté en estado de carga si no hay usuario
+    }
+  }, [user, searchTerm, filterPriority, filterCompleted, filterProject, sortBy, currentPage, limitPerPage, viewMode]);
+
 
   const buildQueryParams = () => {
     const params = new URLSearchParams();
@@ -64,7 +96,6 @@ function App() {
       params.append('sortBy', field);
       params.append('sortDirection', direction);
     }
-    // La paginación solo se aplica a la vista de lista
     if (viewMode === 'list') {
       params.append('page', currentPage);
       params.append('limit', limitPerPage);
@@ -76,10 +107,20 @@ function App() {
     setLoading(true);
     const queryParams = buildQueryParams();
     const url = `http://localhost:5000/api/tasks${queryParams ? `?${queryParams}` : ''}`;
+    const token = localStorage.getItem('token'); // Obtener token
 
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}` // Enviar el token en los headers
+        }
+      });
       if (!response.ok) {
+        if (response.status === 401) { // Si no autorizado, desloguear
+          handleLogout();
+          toast.error('Sesión expirada o no autorizada. Por favor, inicia sesión de nuevo.');
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
@@ -95,12 +136,51 @@ function App() {
     }
   };
 
-  // useEffect ahora depende de viewMode también para ajustar la query params
-  useEffect(() => {
-    fetchTasks();
-  }, [searchTerm, filterPriority, filterCompleted, filterProject, sortBy, currentPage, limitPerPage, viewMode]);
+
+  // --- NUEVAS FUNCIONES DE AUTENTICACIÓN ---
+  const handleAuthSubmit = async (email, password) => {
+    const endpoint = authFormType === 'register' ? '/api/register' : '/api/login';
+    try {
+      const response = await fetch(`http://localhost:5000${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Credenciales inválidas.');
+      }
+
+      const data = await response.json();
+      localStorage.setItem('token', data.token); // Guardar el token
+      localStorage.setItem('user', JSON.stringify(data.user)); // Guardar info del usuario
+      setUser(data.user); // Actualizar el estado del usuario
+      toast.success(data.message || (authFormType === 'register' ? 'Registro exitoso!' : 'Inicio de sesión exitoso!'));
+    } catch (e) {
+      console.error(`Error en ${authFormType}:`, e);
+      toast.error(`Error en ${authFormType}: ${e.message}`);
+      throw e; // Re-lanzar para que AuthForm pueda mostrar su error local
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null); // Limpiar el estado del usuario
+    setTasks([]); // Limpiar tareas
+    setEditingTask(null); // Limpiar cualquier tarea en edición
+    toast.info('Sesión cerrada correctamente.');
+  };
+  // --- FIN NUEVAS FUNCIONES DE AUTENTICACIÓN ---
+
 
   const handleCreateTask = async (taskData) => {
+    const token = localStorage.getItem('token');
+    if (!token) { toast.error('No autenticado. Por favor, inicia sesión.'); return; }
+
     try {
       const taskToSend = { ...taskData };
       if (taskToSend.fechaVencimiento) {
@@ -109,11 +189,15 @@ function App() {
 
       const response = await fetch('http://localhost:5000/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Enviar token
+        },
         body: JSON.stringify(taskToSend),
       });
 
       if (!response.ok) {
+        if (response.status === 401) { handleLogout(); toast.error('Sesión expirada o no autorizada. Inicia sesión.'); return; }
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
@@ -129,6 +213,9 @@ function App() {
   };
 
   const handleUpdateTask = async (taskData) => {
+    const token = localStorage.getItem('token');
+    if (!token) { toast.error('No autenticado. Por favor, inicia sesión.'); return; }
+
     try {
       const taskToSend = { ...taskData };
       if (taskToSend.fechaVencimiento) {
@@ -144,11 +231,15 @@ function App() {
 
       const response = await fetch(`http://localhost:5000/api/tasks/${taskData.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Enviar token
+        },
         body: JSON.stringify(taskToSend),
       });
 
       if (!response.ok) {
+        if (response.status === 401) { handleLogout(); toast.error('Sesión expirada o no autorizada. Inicia sesión.'); return; }
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
@@ -165,6 +256,9 @@ function App() {
   };
 
   const handleDeleteTask = async (id) => {
+    const token = localStorage.getItem('token');
+    if (!token) { toast.error('No autenticado. Por favor, inicia sesión.'); return; }
+
     if (!window.confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
       return;
     }
@@ -172,9 +266,13 @@ function App() {
     try {
       const response = await fetch(`http://localhost:5000/api/tasks/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}` // Enviar token
+        }
       });
 
       if (!response.ok) {
+        if (response.status === 401) { handleLogout(); toast.error('Sesión expirada o no autorizada. Inicia sesión.'); return; }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -210,208 +308,216 @@ function App() {
   };
 
   const handleViewModeChange = (event, newMode) => {
-    if (newMode !== null) { // Asegurarse de que no sea null (cuando se deselecciona un toggle)
+    if (newMode !== null) {
       setViewMode(newMode);
-      // Cuando cambias a la vista de matriz, no tiene sentido la paginación,
-      // así que cargamos todas las tareas (el backend lo manejará sin 'page'/'limit')
       if (newMode === 'matrix') {
-        setCurrentPage(1); // Resetear a página 1 si vuelves a la lista
+        setCurrentPage(1);
       }
     }
   };
 
 
-  if (loading) {
-    return (
-      <Container maxWidth="md" sx={{ mt: 4, textAlign: 'center' }}>
-        <Typography variant="h5" color="text.secondary">Cargando tareas...</Typography>
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container maxWidth="md" sx={{ mt: 4, textAlign: 'center' }}>
-        <Typography variant="h5" color="error">Error: {error.message}</Typography>
-      </Container>
-    );
-  }
-
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4, p: 3, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 3 }}>
+    <Container maxWidth="lg" sx={{ mt: 0, mb: 0, p: 0, bgcolor: 'background.default', boxShadow: 0, borderRadius: 0 }}>
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
 
-      <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4, color: 'primary.main' }}>
-        ZenMatrix - Matriz de Eisenhower
-      </Typography>
-
-      <Typography variant="body1" align="center" sx={{ mb: 3 }}>
-        Bienvenido a tu gestor de tareas.
-      </Typography>
-
-      {editingTask ? (
-        <TaskForm
-          onSubmit={handleUpdateTask}
-          initialTask={editingTask}
-          onCancelEdit={() => setEditingTask(null)}
-        />
-      ) : (
-        <TaskForm onSubmit={handleCreateTask} />
-      )}
-
-      <Divider sx={{ my: 4 }} />
-
-      {/* --- Seccion de Filtrado, Búsqueda, Ordenamiento y Selección de Vista --- */}
-      <Box sx={{ mb: 4, p: 2, bgcolor: '#e3f2fd', borderRadius: 2 }}>
-        <Typography variant="h6" gutterBottom>Opciones de Visualización</Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'flex-end' }}>
-          <TextField
-            label="Buscar por Título/Descripción"
-            variant="outlined"
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ flexGrow: 1 }}
-          />
-          <TextField
-            label="Filtrar por Proyecto"
-            variant="outlined"
-            size="small"
-            value={filterProject}
-            onChange={(e) => setFilterProject(e.target.value)}
-            sx={{ flexGrow: 1 }}
-          />
-          <FormControl sx={{ minWidth: 180 }} size="small">
-            <InputLabel>Prioridad</InputLabel>
-            <Select
-              value={filterPriority}
-              label="Prioridad"
-              onChange={(e) => setFilterPriority(e.target.value)}
-            >
-              <MenuItem value="">Todas</MenuItem>
-              <MenuItem value="Urgente-Importante">Urgente-Importante</MenuItem>
-              <MenuItem value="No Urgente-Importante">No Urgente-Importante</MenuItem>
-              <MenuItem value="Urgente-No Importante">Urgente-No Importante</MenuItem>
-              <MenuItem value="No Urgente-No Importante">No Urgente-No Importante</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl sx={{ minWidth: 150 }} size="small">
-            <InputLabel>Completado</InputLabel>
-            <Select
-              value={filterCompleted}
-              label="Completado"
-              onChange={(e) => setFilterCompleted(e.target.value)}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              <MenuItem value="false">No Completadas</MenuItem>
-              <MenuItem value="true">Completadas</MenuItem>
-            </Select>
-          </FormControl>
-
-          {/* Selector de Ordenamiento */}
-          {viewMode === 'list' && ( // Solo mostrar el ordenamiento en vista de lista
-            <FormControl sx={{ minWidth: 180 }} size="small">
-              <InputLabel>Ordenar por</InputLabel>
-              <Select
-                value={sortBy}
-                label="Ordenar por"
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <MenuItem value="createdAt_desc">Fecha Creación (desc)</MenuItem>
-                <MenuItem value="createdAt_asc">Fecha Creación (asc)</MenuItem>
-                <MenuItem value="fechaVencimiento_asc">Fecha Vencimiento (asc)</MenuItem>
-                <MenuItem value="fechaVencimiento_desc">Fecha Vencimiento (desc)</MenuItem>
-                <MenuItem value="prioridad_asc">Prioridad (asc)</MenuItem>
-                <MenuItem value="prioridad_desc">Prioridad (desc)</MenuItem>
-                <MenuItem value="titulo_asc">Título (A-Z)</MenuItem>
-                <MenuItem value="titulo_desc">Título (Z-A)</MenuItem>
-              </Select>
-            </FormControl>
-          )}
-
-          {/* Selector de Tareas por Página (solo en vista de lista) */}
-          {viewMode === 'list' && (
-            <FormControl sx={{ minWidth: 120 }} size="small">
-              <InputLabel>Tareas por Pág.</InputLabel>
-              <Select
-                value={limitPerPage}
-                label="Tareas por Pág."
-                onChange={handleLimitChange}
-              >
-                <MenuItem value={5}>5</MenuItem>
-                <MenuItem value={10}>10</MenuItem>
-                <MenuItem value={20}>20</MenuItem>
-                <MenuItem value={50}>50</MenuItem>
-              </Select>
-            </FormControl>
-          )}
-
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={handleClearFilters}
-            sx={{ ml: { xs: 0, sm: 2 }, mt: { xs: 2, sm: 0 } }}
-          >
-            Limpiar Filtros
-          </Button>
-
-          {/* Toggle para cambiar la vista */}
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
-            onChange={handleViewModeChange}
-            aria-label="text alignment"
-            sx={{ ml: { xs: 0, sm: 2 }, mt: { xs: 2, sm: 0 } }}
-          >
-            <ToggleButton value="list" aria-label="vista de lista">
-              <Typography>Vista de Lista</Typography>
-            </ToggleButton>
-            <ToggleButton value="matrix" aria-label="vista de matriz">
-              <Typography>Vista de Matriz</Typography>
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
-      </Box>
-      {/* --- Fin Seccion de Filtrado, Búsqueda y Ordenamiento --- */}
-
-      {/* Renderizado condicional de la lista o la matriz */}
-      {viewMode === 'list' ? (
-        <>
-          <Typography variant="h5" component="h2" gutterBottom>
-            Tus Tareas (Vista de Lista)
+      {/* Barra de navegación */}
+      <AppBar position="static" sx={{ bgcolor: 'primary.dark' }}>
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: 'white' }}>
+            ZenMatrix
           </Typography>
-          <TaskList
-            tasks={tasks}
-            onDelete={handleDeleteTask}
-            onEdit={setEditingTask}
-          />
-          {totalPages > 1 && ( // Mostrar paginación solo si hay más de una página y es vista de lista
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-              <Stack spacing={2}>
-                <Pagination
-                  count={totalPages}
-                  page={currentPage}
-                  onChange={handlePageChange}
-                  color="primary"
-                  showFirstButton
-                  showLastButton
-                />
-              </Stack>
+          {user && ( // Mostrar nombre del usuario y botón de logout si está autenticado
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body1" sx={{ color: 'white' }}>
+                Hola, {user.email}
+              </Typography>
+              <Button color="inherit" onClick={handleLogout} sx={{ color: 'white', borderColor: 'white' }}>
+                Cerrar Sesión
+              </Button>
             </Box>
           )}
-        </>
-      ) : (
-        <>
-          <Typography variant="h5" component="h2" gutterBottom>
-            Tus Tareas (Vista de Matriz)
-          </Typography>
-          <EisenhowerMatrix
-            tasks={tasks} // Pasa todas las tareas para que la matriz las categorice
-            onDelete={handleDeleteTask}
-            onEdit={setEditingTask}
+        </Toolbar>
+      </AppBar>
+
+      <Box sx={{ p: 3 }}> {/* Contenido principal con padding */}
+        {!user ? ( // Si no hay usuario autenticado, mostrar el formulario de autenticación
+          <AuthForm
+            type={authFormType}
+            onSubmit={handleAuthSubmit}
+            onToggleType={() => setAuthFormType(prev => prev === 'login' ? 'register' : 'login')}
           />
-        </>
-      )}
+        ) : (
+          // Si el usuario está autenticado, mostrar el contenido principal de la app
+          <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 3 }}>
+            <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4, color: 'primary.main' }}>
+              ZenMatrix - Matriz de Eisenhower
+            </Typography>
+
+            <Typography variant="body1" align="center" sx={{ mb: 3 }}>
+              Bienvenido a tu gestor de tareas.
+            </Typography>
+
+            {editingTask ? (
+              <TaskForm
+                onSubmit={handleUpdateTask}
+                initialTask={editingTask}
+                onCancelEdit={() => setEditingTask(null)}
+              />
+            ) : (
+              <TaskForm onSubmit={handleCreateTask} />
+            )}
+
+            <Divider sx={{ my: 4 }} />
+
+            <Box sx={{ mb: 4, p: 2, bgcolor: '#e3f2fd', borderRadius: 2 }}>
+              <Typography variant="h6" gutterBottom>Opciones de Visualización</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'flex-end' }}>
+                <TextField
+                  label="Buscar por Título/Descripción"
+                  variant="outlined"
+                  size="small"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  sx={{ flexGrow: 1 }}
+                />
+                <TextField
+                  label="Filtrar por Proyecto"
+                  variant="outlined"
+                  size="small"
+                  value={filterProject}
+                  onChange={(e) => setFilterProject(e.target.value)}
+                  sx={{ flexGrow: 1 }}
+                />
+                <FormControl sx={{ minWidth: 180 }} size="small">
+                  <InputLabel>Prioridad</InputLabel>
+                  <Select
+                    value={filterPriority}
+                    label="Prioridad"
+                    onChange={(e) => setFilterPriority(e.target.value)}
+                  >
+                    <MenuItem value="">Todas</MenuItem>
+                    <MenuItem value="Urgente-Importante">Urgente-Importante</MenuItem>
+                    <MenuItem value="No Urgente-Importante">No Urgente-Importante</MenuItem>
+                    <MenuItem value="Urgente-No Importante">Urgente-No Importante</MenuItem>
+                    <MenuItem value="No Urgente-No Importante">No Urgente-No Importante</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl sx={{ minWidth: 150 }} size="small">
+                  <InputLabel>Completado</InputLabel>
+                  <Select
+                    value={filterCompleted}
+                    label="Completado"
+                    onChange={(e) => setFilterCompleted(e.target.value)}
+                  >
+                    <MenuItem value="">Todos</MenuItem>
+                    <MenuItem value="false">No Completadas</MenuItem>
+                    <MenuItem value="true">Completadas</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {viewMode === 'list' && (
+                  <FormControl sx={{ minWidth: 180 }} size="small">
+                    <InputLabel>Ordenar por</InputLabel>
+                    <Select
+                      value={sortBy}
+                      label="Ordenar por"
+                      onChange={(e) => setSortBy(e.target.value)}
+                    >
+                      <MenuItem value="createdAt_desc">Fecha Creación (desc)</MenuItem>
+                      <MenuItem value="createdAt_asc">Fecha Creación (asc)</MenuItem>
+                      <MenuItem value="fechaVencimiento_asc">Fecha Vencimiento (asc)</MenuItem>
+                      <MenuItem value="fechaVencimiento_desc">Fecha Vencimiento (desc)</MenuItem>
+                      <MenuItem value="prioridad_asc">Prioridad (asc)</MenuItem>
+                      <MenuItem value="prioridad_desc">Prioridad (desc)</MenuItem>
+                      <MenuItem value="titulo_asc">Título (A-Z)</MenuItem>
+                      <MenuItem value="titulo_desc">Título (Z-A)</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
+
+                {viewMode === 'list' && (
+                  <FormControl sx={{ minWidth: 120 }} size="small">
+                    <InputLabel>Tareas por Pág.</InputLabel>
+                    <Select
+                      value={limitPerPage}
+                      label="Tareas por Pág."
+                      onChange={handleLimitChange}
+                    >
+                      <MenuItem value={5}>5</MenuItem>
+                      <MenuItem value={10}>10</MenuItem>
+                      <MenuItem value={20}>20</MenuItem>
+                      <MenuItem value={50}>50</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
+
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleClearFilters}
+                  sx={{ ml: { xs: 0, sm: 2 }, mt: { xs: 2, sm: 0 } }}
+                >
+                  Limpiar Filtros
+                </Button>
+
+                <ToggleButtonGroup
+                  value={viewMode}
+                  exclusive
+                  onChange={handleViewModeChange}
+                  aria-label="text alignment"
+                  sx={{ ml: { xs: 0, sm: 2 }, mt: { xs: 2, sm: 0 } }}
+                >
+                  <ToggleButton value="list" aria-label="vista de lista">
+                    <Typography>Lista</Typography>
+                  </ToggleButton>
+                  <ToggleButton value="matrix" aria-label="vista de matriz">
+                    <Typography>Matriz</Typography>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            </Box>
+
+            {viewMode === 'list' ? (
+              <>
+                <Typography variant="h5" component="h2" gutterBottom>
+                  Tus Tareas (Vista de Lista)
+                </Typography>
+                <TaskList
+                  tasks={tasks}
+                  onDelete={handleDeleteTask}
+                  onEdit={setEditingTask}
+                />
+                {totalPages > 1 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                    <Stack spacing={2}>
+                      <Pagination
+                        count={totalPages}
+                        page={currentPage}
+                        onChange={handlePageChange}
+                        color="primary"
+                        showFirstButton
+                        showLastButton
+                      />
+                    </Stack>
+                  </Box>
+                )}
+              </>
+            ) : (
+              <>
+                <Typography variant="h5" component="h2" gutterBottom>
+                  Tus Tareas (Vista de Matriz)
+                </Typography>
+                <EisenhowerMatrix
+                  tasks={tasks}
+                  onDelete={handleDeleteTask}
+                  onEdit={setEditingTask}
+                />
+              </>
+            )}
+          </Box>
+        )}
+      </Box>
     </Container>
   );
 }
