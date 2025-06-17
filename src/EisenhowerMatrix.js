@@ -1,14 +1,16 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next'; // Importa useTranslation
 import {
   Box,
   Typography,
-  Paper, // Para los contenedores de los cuadrantes
-  List,  // Para la lista de tareas dentro de cada cuadrante
+  Paper,
+  List,
 } from '@mui/material';
-import TaskItem from './TaskItem'; // Importa el componente TaskItem para mostrar las tareas
+import TaskItem from './TaskItem';
 
 function EisenhowerMatrix({ tasks, onDelete, onEdit }) {
-  // Función para categorizar las tareas en los cuatro cuadrantes
+  const { t } = useTranslation(); // Inicializa la función de traducción
+
   const categorizeTasks = () => {
     const categories = {
       'Urgente-Importante': [],
@@ -21,7 +23,6 @@ function EisenhowerMatrix({ tasks, onDelete, onEdit }) {
       if (categories[task.prioridad]) {
         categories[task.prioridad].push(task);
       } else {
-        // En caso de que haya una prioridad no reconocida, ponerla en un default
         console.warn(`Prioridad desconocida: ${task.prioridad}. Tarea: ${task.titulo}`);
         categories['No Urgente-No Importante'].push(task);
       }
@@ -31,16 +32,15 @@ function EisenhowerMatrix({ tasks, onDelete, onEdit }) {
 
   const categorizedTasks = categorizeTasks();
 
-  // Componente auxiliar para renderizar un cuadrante
   const Quadrant = ({ title, tasksInQuadrant, bgColor }) => (
     <Paper sx={{ p: 2, bgcolor: bgColor, borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Typography variant="h6" align="center" gutterBottom sx={{ color: 'black', fontWeight: 'bold' }}>
         {title}
       </Typography>
-      <Box sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: '300px' }}> {/* Área con scroll */}
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: '300px' }}>
         {tasksInQuadrant.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
-            No hay tareas aquí.
+            {t('noTasksHere')}
           </Typography>
         ) : (
           <List>
@@ -56,28 +56,28 @@ function EisenhowerMatrix({ tasks, onDelete, onEdit }) {
   return (
     <Box sx={{ mt: 4 }}>
       <Typography variant="h5" component="h2" gutterBottom align="center" sx={{ mb: 3 }}>
-        Matriz de Eisenhower
+        {t('eisenhowerMatrixTitle')}
       </Typography>
-      <Box className="eisenhower-grid">
+      <Box className="eisenhower-grid" sx={{ mb: 2 }}> {/* Añadido mb: 2 aquí para forzar la reevaluación */}
         <Quadrant
-          title="Urgente - Importante (Hacer)"
+          title={t('urgentImportantDo')}
           tasksInQuadrant={categorizedTasks['Urgente-Importante']}
-          bgColor="#FFCDD2" // Rojo/Rosa Pastel (MUI Red 100)
+          bgColor="#FFCDD2"
         />
         <Quadrant
-          title="No Urgente - Importante (Planificar)"
+          title={t('notUrgentImportantPlan')}
           tasksInQuadrant={categorizedTasks['No Urgente-Importante']}
-          bgColor="#FFECB3" // Amarillo/Naranja Pastel (MUI Amber 100)
+          bgColor="#FFECB3"
         />
         <Quadrant
-          title="Urgente - No Importante (Delegar)"
+          title={t('urgentNotImportantDelegate')}
           tasksInQuadrant={categorizedTasks['Urgente-No Importante']}
-          bgColor="#B3E5FC" // Azul Pastel (MUI Light Blue 100)
+          bgColor="#B3E5FC"
         />
         <Quadrant
-          title="No Urgente - No Importante (Eliminar)"
+          title={t('notUrgentNotImportantEliminate')}
           tasksInQuadrant={categorizedTasks['No Urgente-No Importante']}
-          bgColor="#C8E6C9" // Verde Pastel (MUI Light Green 100)
+          bgColor="#C8E6C9"
         />
       </Box>
     </Box>

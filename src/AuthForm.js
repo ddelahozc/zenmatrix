@@ -1,40 +1,40 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   TextField,
   Button,
   Box,
   Typography,
-  Paper, // Para el contenedor del formulario
+  Paper,
 } from '@mui/material';
 
 function AuthForm({ type, onSubmit, onToggleType }) {
+  const { t } = useTranslation();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(''); // Para errores específicos de autenticación
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); // Limpiar errores previos
+    setError('');
 
     if (!email || !password) {
-      setError('Por favor, ingresa tu email y contraseña.');
+      setError(t('emailRequired'));
       return;
     }
 
     try {
-      // type será 'register' o 'login'
       await onSubmit(email, password);
-      // Si onSubmit tiene éxito, los errores se manejarán en App.js
     } catch (err) {
-      // Errores de red o si onSubmit arroja un error que no sea handled por Toast
-      setError(err.message || 'Ocurrió un error inesperado.');
+      setError(err.message || t('unexpectedError'));
     }
   };
 
   return (
-    <Paper sx={{ p: 4, mt: 4, maxWidth: 400, mx: 'auto', borderRadius: 2, boxShadow: 3 }}>
+    <Paper sx={{ p: 4, mt: 4, mx: 'auto', borderRadius: 2, boxShadow: 3, maxWidth: 400, mb: 2 }}> {/* Añadido mb: 2 aquí */}
       <Typography variant="h5" component="h2" align="center" gutterBottom>
-        {type === 'register' ? 'Registrarse' : 'Iniciar Sesión'}
+        {type === 'register' ? t('register') : t('login')}
       </Typography>
       {error && (
         <Typography color="error" align="center" sx={{ mb: 2 }}>
@@ -54,7 +54,7 @@ function AuthForm({ type, onSubmit, onToggleType }) {
         <TextField
           fullWidth
           margin="normal"
-          label="Contraseña"
+          label={t('password')}
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -67,7 +67,7 @@ function AuthForm({ type, onSubmit, onToggleType }) {
           color="primary"
           sx={{ mt: 3, mb: 2 }}
         >
-          {type === 'register' ? 'Registrarse' : 'Iniciar Sesión'}
+          {type === 'register' ? t('register') : t('login')}
         </Button>
         <Button
           fullWidth
@@ -76,8 +76,8 @@ function AuthForm({ type, onSubmit, onToggleType }) {
           onClick={onToggleType}
         >
           {type === 'register'
-            ? '¿Ya tienes una cuenta? Inicia Sesión'
-            : '¿No tienes una cuenta? Regístrate'
+            ? t('alreadyHaveAccount')
+            : t('noAccountYet')
           }
         </Button>
       </Box>
